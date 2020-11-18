@@ -1,0 +1,312 @@
+---
+title: "Functions to manipulate data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{getting-information}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(dsHelper)
+library(MolgenisArmadillo)
+library(DSMolgenisArmadillo)
+library(tidyverse)
+library(dsHelper)
+```
+```{r, eval = FALSE, echo = FALSE}
+setwd("C:/Users/timca/OneDrive - University of Bristol/repos")
+rmarkdown::render("./ds-helper/vignettes/manipulate-data.rmd", output_file="manipulate-data.html")
+```
+
+## Overview
+This vignette shows how to use dsHelper functions to manipulate
+data within DataSHIELD. Currently, lots of things we take for granted
+in normal R are more difficult in DS. These functions call DS functions
+to perform common data manipulation tasks.
+
+## Accessing the data for this vignette
+To access the example data used in this vignette [explanation by Sido + link to
+login vignettes]
+
+## Check whether variables have the same class across different cohorts
+When analysing harmonised data, each variable will have the same class across
+every study. Unfortunately this is not always the case, and where variables
+differ in class across studies it will cause errors (e.g. with ds.summary).
+
+This function will return a tibble with the class of all the variables requested.
+It also contains a column stating whether or not there were any discrepancies.
+
+```{r}
+dh.classDiscrepancy(
+  df = "core_non", 
+  vars = c("child_id", "cohort_id", "ga_bj", "ethn3"),
+  conns = conns
+  )
+```
+
+You can see that there are no discrepancies, but the variables "ethn3" does not
+exist for any of the cohorts [Sido - could you change data so that there are
+discrepancies?]
+
+## Rename variable
+The function dh.renameVars allows you to 'rename' one or more variables. At present it 
+leaves the original variable in the dataframe, creating a copy of this variable
+with the required name. Using the function is two-stage process.
+
+First, we create a tibble with two columns, corresponding to the old and new variable names.
+These need to be named "oldvar" and "newvar". The "tribble" function allows you to make a tibble
+by adding data by rows. You could just used the normal tibble function by giving it one or more
+vectors, but you would need to be careful to make sure that the positions of the old and new variable
+names are correct in each vector: with this approach you can visualise more easily.
+```{r}
+old_new <- tribble(
+  ~oldvar, ~newvar,
+  "ga_bj", "gestational_age",
+  "height_m", "height_mother", 
+  "ethn3_m", "ethnicity_mother"
+  )
+  
+old_new
+```
+
+Now we feed this table to dh.renameVars:
+
+```{r}
+dh.renameVars(
+  df = "core_non", 
+  names = old_new, 
+  conns = conns
+  )
+
+ds.colnames("core_non")
+```
+
+## Remove columns from dataframe
+In the process of making your dataset, you're likely to end up with lots of extra
+columns that you don't need. To tidy things up, we can drop unwanted columns with the
+function "dh.dropCols". Note that you can do the same with "ds.dataFrameSubset", but this
+requires you to specify additional arguments to determine which rows to keep. "dh.dropCols"
+assumes that you are keeping all rows, but dropping columns.
+
+The argument "type" lets you specify whether or not to drop or keep the columns provided 
+in the argument "vars". The variable "comp_var" needs to be a variable which is present in
+all rows, likely an id variable. For example:
+
+```{r}
+dh.dropCols(
+  df = "core_non", 
+  vars = c("ga_bj", "height_m", "ethn3_m"), 
+  type = "remove",
+  comp_var = "child_id",
+  new_df_name = "core_neat", 
+  conns = conns
+  )
+
+ds.colnames("core_neat")
+```
+
+Or specifying to keep the variables:
+
+```{r}
+dh.dropCols(
+  df = "core_non", 
+  vars = c("ga_bj", "height_m", "ethn3_m"), 
+  type = "keep",
+  comp_var = "child_id",
+  new_df_name = "core_neat", 
+  conns = conns
+  )
+
+ds.colnames("core_neat")
+```
+
+## Find column indices based on variable names
+Datashield allows you to subset dataframes using the function "ds.dataFrameSubset".
+However, if you want to create a dataframe which contains a subset of columns, 
+you need to provide the numbers of to be removed or kept. The problem with this is
+that working with column numbers could easily break your code. For example, if at
+a later point you assign another variable it could change the position of other
+variables in the dataframe.
+
+To solve this, you can use the function dh.findVarsIndex to return the indices
+for any number of columns based on the names of those columns. 
+
+```{r}
+column_nums <- dh.findVarsIndex(
+  df = "core_non",
+  vars = c("child_id", "ga_bj"),
+  conns = conns
+  )
+
+column_nums
+```
+
+This function returns a list with column numbers for each cohort. In this case they
+are the same [Sido - worth creating a scenario where there are different?]
+
+You can then use the object containing the column numbers to subset the data frame.
+The syntax here takes a little getting used to. "imap" is part of the "purrr" package
+and allows you to iterate using both the value of a list and the name of the list element.
+So in this case .x refers to the *content* of list element n, .y refers to the *name* of that 
+element. Here we use the list "column_nums" that we have just created, and call ds.dataFrameSubset
+three times (corresponding to the length of the list). The first time we call this .x has the value
+c(2, 3), and .y has the value "cohort1". The second time .x will have the same value (as this is the)
+same for each list element), but the *name* of the element will in this case be "cohort2". This allows
+us to pass (potentially) different column numbers for each cohort.
+
+```{r}
+column_nums %>%
+  imap(
+    ~ds.dataFrameSubset(
+      df.name = "core_non", 
+      V1.name = "core_non$ga_bj", 
+      V2.name = "0", 
+      Boolean.operator = ">=", 
+      keep.cols = .x,
+      keep.NAs = FALSE, 
+      newobj = "subset", 
+      datasources = conns[.y])
+    )
+
+ds.summary("subset")
+```
+
+We have created a subset containing all subjects with (i) a value "ga_bj" >= 0, and (ii) containing
+only the columns "child_id" and "ga_bj"
+
+## Find out which subjects have non-missing values for selection of variables
+When conducting an analysis, you will likely want to report how many subjects
+were included in the analysis. You may, for example, want to include all subjects
+who have the exposure and outcome of interest (but include those also who have
+some missing covariates).
+
+The process to do this in DataSHIELD is quite long-winded, so the function
+"dh.subjHasData" is designed to make this easier. In the simplified example
+below, we include all subjects who have at least some non-missing data on either/and
+birth weight, length and head-circumferance. 
+
+```{r}
+dh.subjHasData(
+  df = "core_non", 
+  vars = c("birth_weight", "birth_length", "birth_head_circum"),
+  new_label = "birth",
+  conns = conns
+  )
+```
+
+Two new vector are created, each of the same length of the dataframe
+provided. The vector "any_birth" will be 1 where the subject has
+data on at least one of the variables, and 0 if not. The vector "n_birth"
+will be in this instance between 0 - 3, and records how many of the variables
+provided the subject has non missing data for.
+
+```{r}
+ds.table("any_birth")
+ds.table("n_birth")
+```
+
+[Sido - could we simulate some missingness so that this is more realistic?]
+
+We can then use this vector to subset the dataframe, for example:
+
+```{r}
+ds.dataFrameSubset(
+  df = "core_non", 
+  V1.name = "any_birth", 
+  V2.name = "1", 
+  Boolean.operator = "==", 
+  keep.NAs = FALSE, 
+  newobj = "birth_subset"
+  )
+
+ds.summary("birth_subset")
+```
+
+We can see that the length of this.... [once we have missing data will be able to show
+that the length has reduced].
+
+## Creating single outcome variables based on repeated measures data
+LifeCycle has loads of repeated measures data. Sometimes we might using multilevel
+models to explore how different exposures affect trajectories of outcomes. However 
+at other times we might want to derive outcomes at specific time points from the
+repeated measures data. For example, we might want to derive three variables which 
+represents the subjects height at (i) 24-48 months, (ii) 48-96 months, and (iii) 96
+- 168 months. How do we do this in DataSHIELD?
+
+It turns out, "not easily!". In R we could use the dplyr package and functions such
+as "group_by" and "filter"; analogues of these aren't currently available in DataSHIELD.
+
+Another issue we need to tackle is what to do if one subject has multiple observations 
+within a time band (e.g. between 96 - 168 months)? One option is averaging these values,
+but I'm not convinced this always makes sense, especially if the band is very wide. A second
+option is to just use on of the measurements, according a predefined criterion. This is the
+option I favour.
+
+The function dh.makeOutcome allows you to derive one or more variables from repeated measures
+data according to defined age bands. It also allows you some choice of how to handle multiple
+observations per subject within that band: you can (i) take the earliest, (ii) take the the
+latest, or (iii) take the nearest to a specified age.
+
+Here we show how it works. With this simulated data running on Armadillo it is quite quick.
+However if you use it on opal servers it will take a long time (e.g. 30 minutes if including
+multiple large cohorts).
+
+Here the age bands are specified in days, and we in case of multiple observations we take
+the earliest. The name of the
+
+```{r}
+dh.makeOutcome(
+  df = "core_mon", 
+  outcome = "height_", 
+  age_var = "height_age", 
+  bands = c(0, 730, 730, 1461, 1461, 2922), 
+  mult_action = "earliest", 
+  df_name = "height_outcome")
+
+ds.summary("height_outcome")
+```
+
+Checking the results with dh.getStats is also a good idea. In particular, you want to check
+that upper and lower bands of the age of measurement for each variable is within the 
+specified bands.
+
+```{r}
+dh.getStats(
+  df = "height_outcome", 
+  vars = c(""))
+```
+
+
+## Tidy things up
+You'll quickly realise that with DataSHIELD you end up with loads of objects in your
+workspace, e.g. temporary objects that you created. There is a DS command to remove
+objects, but it only allows you to remove one at a time. "dh.tidyEnv" allows you to
+specify as many as you want, and choose whether to keep or drop the specified objects.
+
+Note that there is a disclosure control which prevents you from removing objects with 
+a name that is too long. This should be corrected in a future release.
+
+```{r}
+dh.tidyEnv(
+  obj = c("outcome_non.vars", "outcome_year.vars"),
+  type = "remove", 
+  conns = conns
+  )
+
+ds.ls()
+
+dh.tidyEnv(
+  obj = c("core_non", "core_mon", 
+  type = "keep", 
+  conns = conns)
+
+ds.ls()
+```

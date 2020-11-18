@@ -1,0 +1,138 @@
+---
+title: "test-server-login"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{test-server-login}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(dsHelper)
+library(MolgenisArmadillo)
+library(DSMolgenisArmadillo)
+```
+```{r, eval = FALSE, echo = FALSE}
+setwd("C:/Users/timca/OneDrive - University of Bristol/repos")
+rmarkdown::render("./ds-helper/vignettes/test-server-login.rmd", output_file="test-server-login.html")
+```
+
+## Overview
+
+To run the code from these vignettes yourself you will first need to log in to 
+the server which contains example data. This is simulated data based with the 
+same format as the LifeCycle variables. At the moment it is meaningless - in the
+future we will try to simulate more meaningful data based on the values and 
+correlation structure from real cohorts.
+
+## Log in to servers
+
+First we need to access the test server via a token. Sido will write a bit more
+here to explain what we are doing.
+```{r}
+armadillo_url <- "https://armadillo.test.molgenis.org"
+
+token <- armadillo.get_token(armadillo_url)
+```
+
+Now we create an object with the details of our fake cohorts.
+```{r}
+builder <- DSI::newDSLoginBuilder()
+
+builder$append(server = "cohort1",
+               url = armadillo_url,
+               token = token,
+               driver = "ArmadilloDriver")
+
+builder$append(server = "cohort2",
+               url = armadillo_url,
+               token = token,
+               driver = "ArmadilloDriver")
+
+builder$append(server = "cohort3",
+               url = armadillo_url,
+               token = token,
+               driver = "ArmadilloDriver")
+
+logindata <- builder$build()
+```
+
+Log in to these servers
+```{r}
+conns <- datashield.login(
+  logins = logindata, 
+  assign = FALSE)
+```
+
+## Assign variables
+My method is to (i) make a tibble where each row provides details of the table
+we want to assign, and (ii) use "pwalk" to repeatedly call "datashield.assign"
+using values from each row of the tibble.
+
+First we make the tibble with the required table details:
+
+```{r}
+all_tabs <- c(
+  "/2_1_core_1_0/monthly_rep", "/2_1_core_1_0/non_rep", 
+  "/2_1_core_1_0/trimester", "/2_1_core_1_0/yearly_rep", 
+  "/1_1_outcome_1_0/non_rep", "/1_1_outcome_1_0/yearly_rep")
+
+cohorts_tables <- bind_rows(
+  tibble(
+    armadillo_name = "cohort1",
+    table = paste0("cohort1", all_tabs)),
+  tibble(
+    armadillo_name = "cohort2",
+    table = paste0("cohort2", all_tabs)),
+  tibble(
+    armadillo_name = "cohort3",
+    table = paste0("cohort3", all_tabs))) %>%
+   mutate(
+    type = rep(c("core_mon", "core_non", "core_tri", "core_year", 
+             "outcome_non", "outcome_year"), 3))
+
+datashield.tables(conns = conns)
+
+cohorts_tables
+```
+
+We also make vectors of the required variables for each table:
+```{r}
+core_mon.vars <- c("child_id", "height_", "weight_", "age_years")
+core_non.vars <- c(
+  "child_id", "cohort_id", "ga_bj", "birth_weight", "birth_length", 
+  "preg_dia", "agebirth_m_y", "preg_smk", "parity_m", "height_m", "prepreg_weight", 
+  "ethn3_m", "preg_ht", "sex")
+core_tri.vars <- c()
+core_year.vars <- c()
+outcome_non.vars <- c()
+outcome_year.vars <- c()
+```
+
+
+Now we assign the tables using these values. Here we assign all available 
+variables
+
+```{r}
+cohorts_tables %>%
+  pwalk(function(armadillo_name, table, type){
+    
+    datashield.assign(
+      conns = conns[armadillo_name], 
+      symbol = type, 
+      value = table, 
+      variables = eval(parse(text = paste0(type, ".vars"))))
+})
+```
+
+Show what we've done
+```{r}
+ds.ls()
+```

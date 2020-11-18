@@ -1,0 +1,109 @@
+---
+title: "Functions display results using DataSHIELD"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{getting-information}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(dsHelper)
+library(MolgenisArmadillo)
+library(DSMolgenisArmadillo)
+library(tidyverse)
+library(dsHelper)
+```
+```{r, eval = FALSE, echo = FALSE}
+setwd("C:/Users/timca/OneDrive - University of Bristol/repos")
+rmarkdown::render("./ds-helper/vignettes/display-results.rmd", output_file="display-results.html")
+```
+
+## Overview
+Fitting models and getting descriptive statistics is quite straightforward in
+DataSHIELD. However, you won't always get the information back in a format which
+can be easily put into tables for manuscripts. This series of vignettes shows how
+dsHelper functions can assist with this.
+
+## Accessing the data for this vignette
+To access the example data used in this vignette [explanation by Sido + link to
+login vignettes]
+
+## Get descriptive statistics in a useable format (ie Table 1)
+DataSHIELD has a few methods for returning statistics, e.g. ds.summary and ds.table.
+However, at present you can only request a summary for one variable at a time, 
+and this will be included as list containing lots of information.
+
+When I write papers I like to create a workflow which will make all my tables for me, 
+so that if I need to redo the analysis the tables can be easily recreated. The dh.getStats
+function allows you to provide a mix of continuous, binary and categorical variables
+and returns a range of descriptive statistics in a list containing two tibbles (for categorical
+and contintinuous variables). You can then easily use this output to make tables.
+
+Take the following example where we want descriptive stats for 6 variables which are
+mix of datatypes.
+
+```{r}
+stats <- dh.getStats(
+  df = "core_non", 
+  vars = c(
+    "ga_bj", "birth_weight", "birth_length", "preg_dia", "agebirth_m_y", 
+    "preg_smk", "parity_m", "prepreg_weight", "ethn3_m", "preg_ht", "sex"), 
+  conns = conns
+  )
+
+stats
+```
+
+Now that we have the summary statistics saved server side, we can use tidyverse
+functions to get this data in a form which could be useful for tables. For example,
+here we make a table with descriptive stats on two continuous exposures:
+
+```{r}
+cov_cont.tab <- stats$continuous %>%
+  filter(variable %in% c("birth_weight", "birth_length")) %>% ## Choose variables we want
+  mutate(med_range = paste0(perc_50, " (", perc_5, ", ", perc_95, ")"), ## Create columns with format median (range)
+         missing = paste0(missing_n, " (", missing_perc, ")")) %>%
+  select(cohort, variable, med_range, missing) %>% ## Selectly on the columns we need
+  pivot_wider(names_from = variable, values_from = c(med_range, missing)) ## Reshape to wide format
+
+print(cov_cont.tab, width = Inf)
+```
+
+You see that you have a separate row for each study, and the bottom row for all studies combined.
+
+[I will add similar example for categorical once the simulated data]
+
+## Putting the output of a regression model in a table
+Let's start by running a simple regression model, looking at the relationship between
+maternal pre-pregnancy bmi and child birth weight, adjusting for child sex and maternal
+education. We will do both SLMA and IPD versions
+
+### IPD
+```{r}
+
+
+ipd.fit <- 
+
+
+
+
+    out <- ds.glmSLMA(
+      formula = mod$model,
+      data = "analysis_df", 
+      family = "gaussian",
+      datasources = opals[mod$cohorts])
+
+
+```
+
+### SLMA model
+
+### Make a nice table

@@ -1,0 +1,40 @@
+---
+title: "Functions to help with multilevel modelling using DataSHIELD"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{getting-information}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(dsHelper)
+library(MolgenisArmadillo)
+library(DSMolgenisArmadillo)
+library(tidyverse)
+library(dsHelper)
+```
+```{r, eval = FALSE, echo = FALSE}
+setwd("C:/Users/timca/OneDrive - University of Bristol/repos")
+rmarkdown::render("./ds-helper/vignettes/multi-level-modelling.rmd", output_file="multi-level-modelling.html")
+```
+
+## Overview
+Multi-level/mixed effect modelling is now possible within DataSHIELD. There are 
+number of step to go through when fitting multilevel models (e.g. QC, diagnostics, 
+model selection) and this isn't quite as straightforward. This vignette shows how
+to use a suite of functions I've created when fitting multilevel models.
+
+[See also the tutorial I will write on multilevel modelling using datashield, 
+also I've found out a WP7 deliverable]
+
+## Accessing the data for this vignette
+To access the example data used in this vignette [explanation by Sido + link to
+login vignettes]
