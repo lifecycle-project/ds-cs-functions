@@ -40,8 +40,9 @@
 #'  missing_n = as above
 #'  missing_perc = as above
 #'
-#' @importFrom tibble as_tibble tibble add_row
-#' @importFrom dplyr %>% arrange group_by group_map summarise summarize ungroup left_join bind_rows rename filter mutate_at vars distinct
+#' @importFrom tibble as_tibble tibble
+#' @importFrom dplyr %>% arrange group_by group_map summarise summarize ungroup 
+#' left_join bind_rows rename filter mutate_at vars distinct add_row
 #' @importFrom purrr map flatten_dbl
 #' @importFrom dsBaseClient ds.class ds.summary ds.length ds.var ds.quantileMean
 #' @importFrom stringr str_detect
